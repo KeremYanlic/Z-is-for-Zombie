@@ -67,7 +67,7 @@ public class ZombieController : MonoBehaviour, IZombie
         }
         if (currentZombieEvent == ZombieEvents.Chase)
         {
-            if (CheckTargetInChaseRange())
+            if (!CheckTargetInChaseRange())
             {
                 currentZombieEvent = ZombieEvents.Idle;
             }
