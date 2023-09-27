@@ -6,21 +6,11 @@ using UnityEditor;
 [CreateAssetMenu(fileName = "Dialogue_", menuName = "New Dialogue", order = 0)]
 public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
 {
-    [SerializeField] private List<DialogueNode> nodes = new();
+    [SerializeField] private List<DialogueNode> nodes = new List<DialogueNode>();
 
     private Dictionary<string, DialogueNode> nodeLookup = new Dictionary<string, DialogueNode>();
 
 #if UNITY_EDITOR
-    private void Awake()
-    {
-        if (nodes.Count == 0)
-        {
-            DialogueNode dialogueNode = new DialogueNode();
-            dialogueNode.SetUniqueID(System.Guid.NewGuid().ToString());
-            nodes.Add(dialogueNode);
-        }
-    }
-#endif
     private void OnValidate()
     {
         nodeLookup.Clear();
@@ -28,9 +18,11 @@ public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
         foreach (DialogueNode node in GetAllNodes())
         {
 
-            nodeLookup[node.GetUniqueID()] = node;
+            nodeLookup[node.name] = node;
         }
     }
+
+#endif
 
 
     public IEnumerable<DialogueNode> GetAllNodes()
@@ -39,11 +31,7 @@ public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
     }
     public DialogueNode GetRootNode()
     {
-        if (nodes[0] != null)
-        {
-            return nodes[0];
-        }
-        return null;
+        return nodes[0];
 
     }
     public IEnumerable<DialogueNode> GetAllChildren(DialogueNode parentNode)
@@ -57,30 +45,49 @@ public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
         }
 
     }
+    public IEnumerable<DialogueNode> GetPlayerChildren(DialogueNode currentNode)
+    {
+        foreach(DialogueNode node in GetAllChildren(currentNode))
+        {
+            if (node.IsPlayerSpeaking())
+            {
+                yield return node;
+            }
+        }
+    }
+    public DialogueNode GetChildren(DialogueNode parentNode)
+    {
+        foreach (string childID in parentNode.GetChildren())
+        {
+            if (nodeLookup.ContainsKey(childID))
+            {
+                return nodeLookup[childID];
+            }
+        }
+        return null;
+    }
+   
 
     public void CreateNode(DialogueNode parentNode)
     {
         //Create new node
-        DialogueNode newNode = CreateInstance<DialogueNode>();
-        string uniqueID = System.Guid.NewGuid().ToString();
-        newNode.SetUniqueID(uniqueID);//Set new node's uniqueID
-        newNode.name = uniqueID; //Set new node's name
+        DialogueNode newNode = MakeNode(parentNode);
+
         float xPositionModifier = 300;
         float yPositionModifier = (2 - parentNode.GetChildren().Count) * 150;
         Vector2 newNodePosition = new Vector2(parentNode.GetRect().position.x + xPositionModifier, parentNode.GetRect().position.y + yPositionModifier);
         newNode.SetPosition(newNodePosition);
 
-        if (parentNode != null)
-        {
-            parentNode.AddChild(newNode.GetUniqueID());
-
-        }
         Undo.RegisterCreatedObjectUndo(newNode, "Created Dialogue Node");
-
         Undo.RecordObject(this, "Added Dialogue Node");
+
+        AddNode(newNode); 
+
+    }
+    private void AddNode(DialogueNode newNode)
+    {
         nodes.Add(newNode);
         OnValidate();
-
     }
     public void DeleteNode(DialogueNode nodeToDelete)
     {
@@ -91,11 +98,24 @@ public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
         Undo.DestroyObjectImmediate(nodeToDelete);
 
     }
+    private DialogueNode MakeNode(DialogueNode parent)
+    {
+        DialogueNode newNode = CreateInstance<DialogueNode>();
+
+        newNode.name = Guid.NewGuid().ToString();
+        if(parent != null)
+        {
+            parent.AddChild(newNode.name);
+            newNode.SetPlayerSpeaking(parent.IsPlayerSpeaking());
+
+        }
+        return newNode;
+    }
     private void CleanDanglingChildren(DialogueNode nodeToDelete)
     {
         foreach (DialogueNode node in GetAllNodes())
         {
-            node.RemoveChild(nodeToDelete.GetUniqueID());
+            node.RemoveChild(nodeToDelete.name);
         }
     }
 
@@ -103,7 +123,7 @@ public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
     {
         foreach (DialogueNode dialogueNode in GetAllNodes())
         {
-            dialogueNode.AddPosition(delta);
+            dialogueNode.AddPosition(delta); 
             EditorUtility.SetDirty(this);
 
         }
@@ -111,6 +131,13 @@ public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
 
     public void OnBeforeSerialize()
     {
+#if UNITY_EDITOR
+        if (nodes.Count == 0)
+        {
+            DialogueNode newNode = MakeNode(null);
+            AddNode(newNode);
+        }
+
         if (AssetDatabase.GetAssetPath(this) != "")
         {
             foreach (DialogueNode node in GetAllNodes())
@@ -118,12 +145,11 @@ public class DialogueSO : ScriptableObject, ISerializationCallbackReceiver
                 if (AssetDatabase.GetAssetPath(node) == "")
                 {
                     AssetDatabase.AddObjectToAsset(node, this);
-
                 }
             }
         }
+#endif
     }
-
     public void OnAfterDeserialize()
     {
     }
