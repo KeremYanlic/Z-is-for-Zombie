@@ -8,6 +8,8 @@ using UnityEngine.Rendering;
 
 [RequireComponent(typeof(PlayerController))]
 [RequireComponent(typeof(PlayerStatus))]
+[RequireComponent(typeof(PlayerConversant))]
+[RequireComponent(typeof(PlayerInteractManager))]
 [RequireComponent(typeof(GetDamageEvent))]
 [RequireComponent(typeof(MovementByVelocityEvent))]
 [RequireComponent(typeof(MovementByVelocity))]
@@ -43,7 +45,7 @@ using UnityEngine.Rendering;
 public class Player : MonoBehaviour
 {
     [HideInInspector] public PlayerDetailsSO playerDetails;
-
+    
     [HideInInspector] public PlayerController playerController;
     [HideInInspector] public PlayerStatus playerHealth;
     [HideInInspector] public GetDamageEvent getDamageEvent;
@@ -71,7 +73,7 @@ public class Player : MonoBehaviour
     private void Awake()
     {
         // Load components
-
+     
         playerController = GetComponent<PlayerController>();
         playerHealth = GetComponent<PlayerStatus>();
         getDamageEvent = GetComponent<GetDamageEvent>();
@@ -135,11 +137,11 @@ public class Player : MonoBehaviour
         //Create player starting weapons
         CreatePlayerStartingWeapons();
 
-
+       
     }
 
 
-
+  
     /// <summary>
     /// Set the player starting weapon
     /// </summary>
@@ -156,7 +158,7 @@ public class Player : MonoBehaviour
         }
     }
 
-
+ 
 
     /// <summary>
     /// Returns the player position
