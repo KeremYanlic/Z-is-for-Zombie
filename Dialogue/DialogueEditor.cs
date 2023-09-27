@@ -11,6 +11,7 @@ namespace Survival.Dialogue.Editor
     {
         private DialogueSO selectedDialogue = null;
         [NonSerialized] private GUIStyle nodeStyle;
+        [NonSerialized] private GUIStyle playerNodeStyle;
         [NonSerialized] private DialogueNode draggingNode = null;
         [NonSerialized] private DialogueNode creatingNode = null;
         [NonSerialized] private DialogueNode deletingNode = null;
@@ -25,17 +26,17 @@ namespace Survival.Dialogue.Editor
         [MenuItem("Window/Dialogue Editor")]
         public static void ShowEditorWindow()
         {
-            EditorWindow editorWindow = GetWindow(typeof(DialogueEditor), false, "Dialogue Editor");
-
+            GetWindow(typeof(DialogueEditor), false, "Dialogue Editor");
+            
         }
         [OnOpenAsset(1)]
-        public static bool OnOpenAsset(int instanceID, int line)
+        public static bool OnOpenAsset(int instanceID,int line)
         {
             DialogueSO dialogueSO = EditorUtility.InstanceIDToObject(instanceID) as DialogueSO;
-            if (dialogueSO != null)
+            if(dialogueSO != null)
             {
                 ShowEditorWindow();
-
+                
                 return true;
             }
             return false;
@@ -45,10 +46,16 @@ namespace Survival.Dialogue.Editor
             Selection.selectionChanged += OnSelectionChange;
 
             nodeStyle = new GUIStyle();
-            nodeStyle.normal.background = EditorGUIUtility.Load("node1") as Texture2D;
+            nodeStyle.normal.background = EditorGUIUtility.Load("node0") as Texture2D;
             nodeStyle.normal.textColor = Color.white;
             nodeStyle.padding = new RectOffset(20, 20, 20, 20);
             nodeStyle.border = new RectOffset(12, 12, 12, 12);
+
+            playerNodeStyle = new GUIStyle();
+            playerNodeStyle.normal.background = EditorGUIUtility.Load("node1") as Texture2D;
+            playerNodeStyle.normal.textColor = Color.white;
+            playerNodeStyle.padding = new RectOffset(20, 20, 20, 20);
+            playerNodeStyle.border = new RectOffset(12, 12, 12, 12);
 
         }
         private void OnSelectionChange()
@@ -61,10 +68,9 @@ namespace Survival.Dialogue.Editor
 
             }
         }
-
         private void OnGUI()
         {
-            if (selectedDialogue == null)
+            if(selectedDialogue == null)
             {
                 EditorGUILayout.LabelField("No Dialogue Selected.");
             }
@@ -99,7 +105,7 @@ namespace Survival.Dialogue.Editor
             {
                 //Mouse down event
                 case EventType.MouseDown:
-                    MouseDownEvent();
+                    MouseDownEvent();           
                     break;
 
                 //Mouse drag event
@@ -111,7 +117,7 @@ namespace Survival.Dialogue.Editor
                 case EventType.MouseUp:
                     MouseUpEvent();
                     break;
-            }
+            } 
         }
         //<summary>
         //Mouse Down event
@@ -121,7 +127,7 @@ namespace Survival.Dialogue.Editor
             if (draggingNode == null)
             {
                 draggingNode = GetNodeAtPoint(Event.current.mousePosition);
-                if (draggingNode != null)
+                if(draggingNode != null)
                 {
                     Selection.activeObject = draggingNode;
                 }
@@ -130,7 +136,7 @@ namespace Survival.Dialogue.Editor
                     Selection.activeObject = selectedDialogue;
                 }
             }
-        }
+        }  
         //<summary>
         //Mouse Drag event
         //</summary>
@@ -138,7 +144,7 @@ namespace Survival.Dialogue.Editor
         {
             if (draggingNode != null)
             {
-                Undo.RecordObject(selectedDialogue, "Move Dialogue Node");
+                
                 draggingNode.AddPosition(Event.current.delta);
                 GUI.changed = true;
             }
@@ -200,7 +206,13 @@ namespace Survival.Dialogue.Editor
         //</summary>
         private void DrawNode(DialogueNode dialogueNode)
         {
-            GUILayout.BeginArea(dialogueNode.GetRect(), nodeStyle);
+            GUIStyle style = dialogueNode.IsPlayerSpeaking() ? playerNodeStyle : nodeStyle;
+        
+
+            GUILayout.BeginArea(dialogueNode.GetRect(), style);
+
+
+
             EditorGUI.BeginChangeCheck();
             string newText = EditorGUILayout.TextField(dialogueNode.GetText());
 
@@ -217,12 +229,14 @@ namespace Survival.Dialogue.Editor
             LinkNodeOperationBtn(dialogueNode);
             //Remove a node functionality
             RemoveNodeBtn(dialogueNode);
-
+         
             EditorGUILayout.EndHorizontal();
+
+
 
             GUILayout.EndArea();
         }
-
+      
 
 
         private void AddNodeBtn(DialogueNode dialogueNode)
@@ -231,6 +245,7 @@ namespace Survival.Dialogue.Editor
             {
                 creatingNode = dialogueNode;
             }
+         
         }
         private void LinkNodeOperationBtn(DialogueNode dialogueNode)
         {
@@ -248,12 +263,12 @@ namespace Survival.Dialogue.Editor
                     linkinkParentNode = null;
                 }
             }
-            else if (linkinkParentNode.GetChildren().Contains(dialogueNode.GetUniqueID()))
+            else if (linkinkParentNode.GetChildren().Contains(dialogueNode.name))
             {
                 if (GUILayout.Button("Unlink"))
                 {
-
-                    linkinkParentNode.RemoveChild(dialogueNode.GetUniqueID());
+                   
+                    linkinkParentNode.RemoveChild(dialogueNode.name);
                     linkinkParentNode = null;
                 }
             }
@@ -261,9 +276,10 @@ namespace Survival.Dialogue.Editor
             {
                 if (GUILayout.Button("Child"))
                 {
-                    if (!linkinkParentNode.GetChildren().Contains(dialogueNode.GetUniqueID()))
+                    if (!linkinkParentNode.GetChildren().Contains(dialogueNode.name))
                     {
-                        linkinkParentNode.AddChild(dialogueNode.GetUniqueID());
+                        Undo.RecordObject(selectedDialogue, "Add Dialogue Link");
+                        linkinkParentNode.AddChild(dialogueNode.name);
                         linkinkParentNode = null;
                     }
 
@@ -297,7 +313,7 @@ namespace Survival.Dialogue.Editor
             Vector3 startPosition = new Vector3(node.GetRect().xMax, node.GetRect().center.y);
             foreach (DialogueNode childNode in selectedDialogue.GetAllChildren(node))
             {
-                if (childNode != null)
+                if(childNode != null)
                 {
                     Vector3 endPosition = new Vector3(childNode.GetRect().xMin, childNode.GetRect().center.y);
                     Vector3 controlPointOffset = endPosition - startPosition;
@@ -305,21 +321,21 @@ namespace Survival.Dialogue.Editor
                     controlPointOffset.x *= 0.8f;
                     Handles.DrawBezier(startPosition, endPosition, startPosition + controlPointOffset, endPosition - controlPointOffset, Color.white, null, 3f);
                 }
-
-
+                
+               
             }
         }
         private DialogueNode GetNodeAtPoint(Vector2 mousePosition)
         {
             DialogueNode foundNode = null;
-            foreach (DialogueNode node in selectedDialogue.GetAllNodes())
+            foreach(DialogueNode node in selectedDialogue.GetAllNodes())
             {
                 if (node.GetRect().Contains(mousePosition))
                 {
                     foundNode = node;
                 }
-
-
+              
+              
             }
             return foundNode;
         }
@@ -351,6 +367,6 @@ namespace Survival.Dialogue.Editor
             Handles.color = Color.white;
         }
     }
-
+   
 
 }
