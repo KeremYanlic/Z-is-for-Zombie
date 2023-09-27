@@ -5,7 +5,7 @@ using System;
 using UnityEditor;
 public class DialogueNode : ScriptableObject
 {
-    [SerializeField] private string uniqueID;
+    [SerializeField] private bool isPlayerSpeaking = false;
     [SerializeField] private string text;
     [SerializeField] private List<string> children = new List<string>();
     [SerializeField] private Rect rect = new Rect(0, 0, 200, 100);
@@ -19,13 +19,14 @@ public class DialogueNode : ScriptableObject
     {
         return rect;
     }
-    public string GetUniqueID()
-    {
-        return uniqueID;
-    }
+    
     public List<string> GetChildren()
     {
         return children;
+    }
+    public bool IsPlayerSpeaking()
+    {
+        return isPlayerSpeaking;
     }
 
 #if UNITY_EDITOR
@@ -45,15 +46,14 @@ public class DialogueNode : ScriptableObject
     }
     public void SetText(string newText)
     {
-        Undo.RecordObject(this, "Set Dialogue Node Text");
-        text = newText;
-        EditorUtility.SetDirty(this);
+        if (newText != text)
+        {
+            Undo.RecordObject(this, "Update Dialogue Text");
+            text = newText;
+            EditorUtility.SetDirty(this);
+        }
     }
-    public void SetUniqueID(string newID)
-    {
-        uniqueID = newID;
-        EditorUtility.SetDirty(this);
-    }
+   
     public void AddChild(string childID)
     {
         Undo.RecordObject(this, "Add Dialogue Link");
@@ -65,6 +65,13 @@ public class DialogueNode : ScriptableObject
         Undo.RecordObject(this, "Remove Dialogue Link");
         children.Remove(childID);
         EditorUtility.SetDirty(this);
+    }
+    public void SetPlayerSpeaking(bool newIsPlayerSpeaking)
+    {
+        Undo.RecordObject(this, "Change dialogue speaker");
+        isPlayerSpeaking = !newIsPlayerSpeaking;
+        EditorUtility.SetDirty(this);
+
     }
 #endif
 }
