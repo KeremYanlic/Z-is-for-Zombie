@@ -15,6 +15,8 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(MovementByVelocity))]
 [RequireComponent(typeof(MovementToPositionEvent))]
 [RequireComponent(typeof(MovementToPosition))]
+[RequireComponent(typeof(MoveToDestinationEvent))]
+[RequireComponent(typeof(MoveToDestination))]
 [RequireComponent(typeof(IdleEvent))]
 [RequireComponent(typeof(Idle))]
 [RequireComponent(typeof(RunEvent))]
@@ -23,6 +25,7 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(FireWeaponEvent))]
 [RequireComponent(typeof(FireWeapon))]
 [RequireComponent(typeof(SetActiveWeaponEvent))]
+[RequireComponent(typeof(DisableWeaponEvent))]
 [RequireComponent(typeof(ActiveWeapon))]
 [RequireComponent(typeof(WeaponFiredEvent))]
 [RequireComponent(typeof(ReloadWeaponEvent))]
@@ -32,6 +35,7 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(AimThroughSight))]
 [RequireComponent(typeof(ActiveCar))]
 [RequireComponent(typeof(SetActiveCarEvent))]
+[RequireComponent(typeof(DialogueHandleEvent))]
 [RequireComponent(typeof(AnimatePlayer))]
 [RequireComponent(typeof(SortingGroup))]
 [RequireComponent(typeof(SpriteRenderer))]
@@ -45,17 +49,20 @@ using UnityEngine.Rendering;
 public class Player : MonoBehaviour
 {
     [HideInInspector] public PlayerDetailsSO playerDetails;
-    
+    [HideInInspector] public PlayerInteractManager playerInteractManager;
     [HideInInspector] public PlayerController playerController;
     [HideInInspector] public PlayerStatus playerHealth;
     [HideInInspector] public GetDamageEvent getDamageEvent;
     [HideInInspector] public MovementByVelocityEvent movementByVelocityEvent;
     [HideInInspector] public MovementToPositionEvent movementToPositionEvent;
+    [HideInInspector] public MoveToDestinationEvent movementToDestinationEvent;
+    [HideInInspector] public DialogueHandleEvent dialogueHandleEvent;
     [HideInInspector] public IdleEvent idleEvent;
     [HideInInspector] public RunEvent runEvent;
     [HideInInspector] public AimWeaponEvent aimWeaponEvent;
     [HideInInspector] public FireWeaponEvent fireWeaponEvent;
     [HideInInspector] public SetActiveWeaponEvent setActiveWeaponEvent;
+    [HideInInspector] public DisableWeaponEvent disableWeaponEvent;
     [HideInInspector] public ActiveWeapon activeWeapon;
     [HideInInspector] public WeaponFiredEvent weaponFiredEvent;
     [HideInInspector] public ReloadWeaponEvent reloadWeaponEvent;
@@ -63,6 +70,7 @@ public class Player : MonoBehaviour
     [HideInInspector] public AimThroughSightEvent aimThroughSightEvent;
     [HideInInspector] public ActiveCar activeCar;
     [HideInInspector] public SetActiveCarEvent setActiveCarEvent;
+    [HideInInspector] public DialogueHandleEvent startDialogueEvent;
     [HideInInspector] public SpriteRenderer spriteRenderer;
     [HideInInspector] public Animator animator;
 
@@ -75,15 +83,19 @@ public class Player : MonoBehaviour
         // Load components
      
         playerController = GetComponent<PlayerController>();
+        playerInteractManager = GetComponent<PlayerInteractManager>();
         playerHealth = GetComponent<PlayerStatus>();
         getDamageEvent = GetComponent<GetDamageEvent>();
         movementByVelocityEvent = GetComponent<MovementByVelocityEvent>();
         movementToPositionEvent = GetComponent<MovementToPositionEvent>();
+        movementToDestinationEvent = GetComponent<MoveToDestinationEvent>();
+        dialogueHandleEvent = GetComponent<DialogueHandleEvent>();
         idleEvent = GetComponent<IdleEvent>();
         runEvent = GetComponent<RunEvent>();
         aimWeaponEvent = GetComponent<AimWeaponEvent>();
         fireWeaponEvent = GetComponent<FireWeaponEvent>();
         setActiveWeaponEvent = GetComponent<SetActiveWeaponEvent>();
+        disableWeaponEvent = GetComponent<DisableWeaponEvent>();
         activeWeapon = GetComponent<ActiveWeapon>();
         weaponFiredEvent = GetComponent<WeaponFiredEvent>();
         reloadWeaponEvent = GetComponent<ReloadWeaponEvent>();
@@ -91,6 +103,7 @@ public class Player : MonoBehaviour
         aimThroughSightEvent = GetComponent<AimThroughSightEvent>();
         activeCar = GetComponent<ActiveCar>();
         setActiveCarEvent = GetComponent<SetActiveCarEvent>();
+        startDialogueEvent = GetComponent<DialogueHandleEvent>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         animator = GetComponent<Animator>();
     }
@@ -136,12 +149,7 @@ public class Player : MonoBehaviour
 
         //Create player starting weapons
         CreatePlayerStartingWeapons();
-
-       
     }
-
-
-  
     /// <summary>
     /// Set the player starting weapon
     /// </summary>
