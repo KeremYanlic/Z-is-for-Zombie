@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Player))]
-[RequireComponent(typeof(PlayerStatus))]
 [DisallowMultipleComponent]
 public class PlayerController : MonoBehaviour
 {
@@ -24,6 +23,7 @@ public class PlayerController : MonoBehaviour
     private WaitForFixedUpdate waitForFixedUpdate;
     private float playerRollCooldownTimer = 0f;
     private bool isPlayerMovementDisabled = false;
+    private bool isWeaponActive = true;
 
     [HideInInspector] public bool isPlayerRolling = false;
 
@@ -36,7 +36,7 @@ public class PlayerController : MonoBehaviour
         walkSpeed = movementDetails.GetMoveSpeed();
         runSpeed = movementDetails.GetRunSpeed();
     }
-
+    
     private void Start()
     {
         // Create waitforfixed update for use in coroutine
@@ -48,6 +48,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        
         // if player movement disabled then return
         if (isPlayerMovementDisabled)
             return;
@@ -64,7 +65,7 @@ public class PlayerController : MonoBehaviour
 
         // Player roll cooldown timer
         PlayerRollCooldownTimer();
-
+      
         // Set player animation based on its movement situation
         SetPlayerAnimationSpeed();
     }
@@ -196,7 +197,7 @@ public class PlayerController : MonoBehaviour
             playerRollCooldownTimer -= Time.deltaTime;
         }
     }
-
+ 
     /// <summary>
     /// Weapon Input
     /// </summary>
@@ -206,23 +207,27 @@ public class PlayerController : MonoBehaviour
         float weaponAngleDegrees, playerAngleDegrees;
         AimDirection playerAimDirection;
 
+        if (player.playerInteractManager.isHeading) return;
+
         // Aim weapon input
         AimWeaponInput(out weaponDirection, out weaponAngleDegrees, out playerAngleDegrees, out playerAimDirection);
-
-        // Fire weapon input
-        FireWeaponInput(weaponDirection, weaponAngleDegrees, playerAngleDegrees, playerAimDirection);
 
         // Switch weapon input
         SwitchWeaponInput();
 
+        if (!isWeaponActive) return;
+        // Fire weapon input
+        FireWeaponInput(weaponDirection, weaponAngleDegrees, playerAngleDegrees, playerAimDirection);
+
+       
         // Relaod weapon input
         ReloadWeaponInput();
 
         //Aim through sight event
         AimThroughSightInput();
 
-
-    }
+       
+    } 
     /// <summary>
     /// Aim through sight input
     /// </summary>
@@ -235,13 +240,13 @@ public class PlayerController : MonoBehaviour
 
         if (Input.GetMouseButton(1))
         {
-            player.aimThroughSightEvent.CallAimThroughSight(NoScopeGunAimWeight, hasGunScope);
+            player.aimThroughSightEvent.CallAimThroughSight(NoScopeGunAimWeight,hasGunScope);
         }
         else
         {
             player.aimThroughSightEvent.CallAimThroughSight(NoScopeGunDefaultWeight, false);
         }
-
+       
     }
 
     private void AimWeaponInput(out Vector3 weaponDirection, out float weaponAngleDegrees, out float playerAngleDegrees, out AimDirection playerAimDirection)
@@ -256,10 +261,10 @@ public class PlayerController : MonoBehaviour
         Vector3 playerDirection = (mouseWorldPosition - transform.position);
 
         // Get weapon to cursor angle
-        weaponAngleDegrees = UtilsClass.GetAngleFromMousePosition(weaponDirection);
+        weaponAngleDegrees = UtilsClass.GetAngleFromPosition(weaponDirection);
 
         // Get player to cursor angle
-        playerAngleDegrees = UtilsClass.GetAngleFromMousePosition(playerDirection);
+        playerAngleDegrees = UtilsClass.GetAngleFromPosition(playerDirection);
 
         // Set player aim direction
         playerAimDirection = UtilsClass.GetAimDirectionFromAngle(playerAngleDegrees);
@@ -284,7 +289,7 @@ public class PlayerController : MonoBehaviour
             );
             leftMouseDownPreviousFrame = true;
         }
-
+        
         else
         {
             leftMouseDownPreviousFrame = false;
@@ -322,6 +327,13 @@ public class PlayerController : MonoBehaviour
         {
             SetWeaponByIndex(4);
         }
+        if (Input.GetKeyDown(KeyCode.Alpha5)){
+
+            //Disable weapon
+            DisableWeapon();
+            player.disableWeaponEvent.CallDisableWeaponEvent();
+            
+        }
     }
 
     private void SetWeaponByIndex(int weaponIndex)
@@ -330,6 +342,7 @@ public class PlayerController : MonoBehaviour
         {
             currentWeaponIndex = weaponIndex;
             player.setActiveWeaponEvent.CallSetActiveWeaponEvent(player.weaponList[weaponIndex - 1]);
+            EnableWeapon();
         }
     }
 
@@ -368,7 +381,7 @@ public class PlayerController : MonoBehaviour
         // remaining ammo is less than clip capacity then return and not infinite ammo the return
         if (
             currentWeapon.weaponRemainingAmmo < currentWeapon.weaponDetails.weaponClipAmmoCapacity
-
+            
         ) return;
 
         // if ammo in clip equals clip capacity then return
@@ -384,13 +397,13 @@ public class PlayerController : MonoBehaviour
     private void OnCollisionEnter2D(Collision2D collision)
     {
         // if collided with something stop player roll coroutine
-        StopPlayerRollRoutine();
+        StopPlayerRollRoutine();      
     }
 
     private void OnCollisionStay2D(Collision2D collision)
     {
         // if in collision with something stop player roll coroutine
-        StopPlayerRollRoutine();
+        StopPlayerRollRoutine(); 
     }
 
     private void StopPlayerRollRoutine()
@@ -417,11 +430,28 @@ public class PlayerController : MonoBehaviour
     public void DisablePlayer()
     {
         transform.position = new Vector3(99999f, 99999f);
+        DisableMovement();
+    }
+    public void DisableMovement()
+    {
         isPlayerMovementDisabled = true;
         player.idleEvent.CallIdleEvent();
     }
-
-
+    private void DisableWeapon()
+    {
+        if (isWeaponActive)
+        {
+            isWeaponActive = false;
+        }
+    }
+    private void EnableWeapon()
+    {
+        if (!isWeaponActive)
+        {
+            isWeaponActive = true;
+        }
+    }
+ 
 
     #region Validation
 #if UNITY_EDITOR
