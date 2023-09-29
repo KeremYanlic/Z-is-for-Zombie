@@ -4,6 +4,7 @@ using UnityEngine;
 
 [RequireComponent(typeof(AimThroughSightEvent))]
 [RequireComponent(typeof(SetActiveWeaponEvent))]
+[RequireComponent(typeof(DisableWeaponEvent))]
 [DisallowMultipleComponent]
 public class ActiveWeapon : MonoBehaviour
 {
@@ -13,15 +14,16 @@ public class ActiveWeapon : MonoBehaviour
     [SerializeField] private SpriteRenderer weaponSpriteRenderer;
 
     #region Tooltip
-    [Tooltip("Populate with the PolygonCollider2D on the child Weapon gameobject")]
+    [Tooltip("Populate with the Transform on the child Weapon gameobject")]
     #endregion
-    [SerializeField] private PolygonCollider2D weaponPolygonCollider2D;
+    [SerializeField] private Transform weaponTransform;
+    private PolygonCollider2D weaponPolygonCollider2D;
 
     #region Tooltip
     [Tooltip("Populate with the Transform on the WeaponShootPosition gameobject")]
     #endregion
     [SerializeField] private Transform weaponShootPositionTransform;
-
+   
 
     #region Tooltip
     [Tooltip("Populate with the Transform on the WeaponLightPosition gameobject")]
@@ -35,7 +37,8 @@ public class ActiveWeapon : MonoBehaviour
     [SerializeField] private Transform weaponEffectPositionTransform;
 
     private AimThroughSightEvent aimThroughSightEvent;
-    private SetActiveWeaponEvent setWeaponEvent;
+    private SetActiveWeaponEvent setActiveWeaponEvent;
+    private DisableWeaponEvent disableWeaponEvent;
     private Weapon currentWeapon;
 
 
@@ -43,27 +46,46 @@ public class ActiveWeapon : MonoBehaviour
     {
         // Load components
         aimThroughSightEvent = GetComponent<AimThroughSightEvent>();
-        setWeaponEvent = GetComponent<SetActiveWeaponEvent>();
+        setActiveWeaponEvent = GetComponent<SetActiveWeaponEvent>();
+        disableWeaponEvent = GetComponent<DisableWeaponEvent>();
     }
     private void OnEnable()
     {
         //Subscribe to set active weapon event
-        setWeaponEvent.OnSetActiveWeapon += SetWeaponEvent_OnSetActiveWeapon;
+        setActiveWeaponEvent.OnSetActiveWeapon += SetWeaponEvent_OnSetActiveWeapon;
 
         //Subscribe to aim through sight event
         aimThroughSightEvent.OnAimThroughSight += AimThroughSightEvent_OnAimThroughSight;
+
+        //Subscribe to disable weapon event
+        disableWeaponEvent.OnDisableWeapon += DisableWeaponEvent_OnDisableWeapon;
+
+        //Subscribe to enable weapon event
+        setActiveWeaponEvent.OnEnableWeapon += SetWeaponEvent_OnEnableWeapon;
     }
+
+   
 
     private void OnDisable()
     {
         //Unsubscribe from set active weapon event
-        setWeaponEvent.OnSetActiveWeapon -= SetWeaponEvent_OnSetActiveWeapon;
+        setActiveWeaponEvent.OnSetActiveWeapon -= SetWeaponEvent_OnSetActiveWeapon;
 
         //Unsubscribe from aim through sight event
         aimThroughSightEvent.OnAimThroughSight -= AimThroughSightEvent_OnAimThroughSight;
 
-    }
+        //Unubscribe from disable weapon event
+        disableWeaponEvent.OnDisableWeapon -= DisableWeaponEvent_OnDisableWeapon;
 
+        //Unsubscribe from enable weapon event
+        setActiveWeaponEvent.OnEnableWeapon -= SetWeaponEvent_OnEnableWeapon;
+
+    }
+    private void Start()
+    {
+        //Set polygonCollider2D
+        weaponPolygonCollider2D = weaponTransform.GetComponent<PolygonCollider2D>();
+    }
     private void SetWeaponEvent_OnSetActiveWeapon(SetActiveWeaponEvent setActiveWeaponEvent, SetActiveWeaponEventArgs setActiveWeaponEventArgs)
     {
         SetWeapon(setActiveWeaponEventArgs.weapon);
@@ -80,10 +102,20 @@ public class ActiveWeapon : MonoBehaviour
             weaponSpriteRenderer.maskInteraction = SpriteMaskInteraction.None;
         }
     }
-
-
+    private void DisableWeaponEvent_OnDisableWeapon(DisableWeaponEvent obj)
+    {
+        //Disable weapon sprite renderer
+        weaponTransform.GetComponent<SpriteRenderer>().enabled = false;
+    }
+    private void SetWeaponEvent_OnEnableWeapon(SetActiveWeaponEvent obj)
+    {
+        //Enable weapon sprite renderer
+        weaponTransform.GetComponent<SpriteRenderer>().enabled = true;
+    }
     private void SetWeapon(Weapon weapon)
     {
+        weaponTransform.gameObject.SetActive(true);
+
         currentWeapon = weapon;
 
         // Set current weapon sprite
@@ -139,7 +171,7 @@ public class ActiveWeapon : MonoBehaviour
     private void OnValidate()
     {
         UtilsClass.ValidateCheckNullValue(this, nameof(weaponSpriteRenderer), weaponSpriteRenderer);
-        UtilsClass.ValidateCheckNullValue(this, nameof(weaponPolygonCollider2D), weaponPolygonCollider2D);
+        UtilsClass.ValidateCheckNullValue(this, nameof(weaponTransform), weaponTransform);
         UtilsClass.ValidateCheckNullValue(this, nameof(weaponShootPositionTransform), weaponShootPositionTransform);
         UtilsClass.ValidateCheckNullValue(this, nameof(weaponEffectPositionTransform), weaponEffectPositionTransform);
     }
