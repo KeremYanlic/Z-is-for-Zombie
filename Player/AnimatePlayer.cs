@@ -27,7 +27,15 @@ public class AnimatePlayer : MonoBehaviour
 
         // Subscribe to weapon aim event
         player.aimWeaponEvent.OnWeaponAim += AimWeaponEvent_OnWeaponAim;
+
+        //Subscribe to movement to destination event
+        player.movementToDestinationEvent.OnMoveToDestination += MovementToDestinationEvent_OnMoveToDestination;
+
+        //Subscribe to stop movement event
+        player.movementToDestinationEvent.OnStopDestination += MovementToDestinationEvent_OnStopDestination;
     }
+
+  
 
     private void OnDisable()
     {
@@ -42,6 +50,12 @@ public class AnimatePlayer : MonoBehaviour
 
         // Unsubscribe from weapon aim event event
         player.aimWeaponEvent.OnWeaponAim -= AimWeaponEvent_OnWeaponAim;
+
+        //Unsubscribe from movement to destination event
+        player.movementToDestinationEvent.OnMoveToDestination -= MovementToDestinationEvent_OnMoveToDestination;
+
+        //Unubscribe from stop movement event
+        player.movementToDestinationEvent.OnStopDestination -= MovementToDestinationEvent_OnStopDestination;
     }
 
     /// <summary>
@@ -63,7 +77,19 @@ public class AnimatePlayer : MonoBehaviour
         SetMovementToPositionAnimationParameters(movementToPositionArgs);
 
     }
+    private void MovementToDestinationEvent_OnMoveToDestination(MoveToDestinationEvent arg1, MoveToDestinationEventArgs moveToDestinationEventArgs)
+    {
+        InitializeAimAnimationParameters();
+        SetMovementAnimationParameters();
 
+        AimDirection aimDirection = UtilsClass.GetAimDirectionFromAngle(UtilsClass.GetAngleFromPosition(moveToDestinationEventArgs.moveDirection));
+        SetAimWeaponAnimationParameters(aimDirection);
+    }
+    private void MovementToDestinationEvent_OnStopDestination(MoveToDestinationEvent obj)
+    {
+        player.idleEvent.CallIdleEvent();
+        
+    }
     /// <summary>
     /// On idle event handler
     /// </summary>
