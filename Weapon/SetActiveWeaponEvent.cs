@@ -7,10 +7,12 @@ using System;
 public class SetActiveWeaponEvent : MonoBehaviour
 {
     public event Action<SetActiveWeaponEvent, SetActiveWeaponEventArgs> OnSetActiveWeapon;
+    public event Action<SetActiveWeaponEvent> OnEnableWeapon;
 
     public void CallSetActiveWeaponEvent(Weapon weapon)
     {
         OnSetActiveWeapon?.Invoke(this, new SetActiveWeaponEventArgs() { weapon = weapon });
+        OnEnableWeapon?.Invoke(this);
     }
 }
 
