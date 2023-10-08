@@ -5,7 +5,9 @@ using UnityEngine.Rendering;
 
 
 #region REQUIRE COMPONENTS
-
+[RequireComponent(typeof(ItemDropper))]
+[RequireComponent(typeof(Equipment))]
+[RequireComponent(typeof(Inventory))]
 [RequireComponent(typeof(PlayerController))]
 [RequireComponent(typeof(PlayerStatus))]
 [RequireComponent(typeof(PlayerConversant))]
