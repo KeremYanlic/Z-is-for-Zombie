@@ -48,7 +48,6 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        
         // if player movement disabled then return
         if (isPlayerMovementDisabled)
             return;
@@ -58,10 +57,8 @@ public class PlayerController : MonoBehaviour
 
         // Process the player movement input
         MovementInput();
-
         // Process the player weapon input
         WeaponInput();
-
 
         // Player roll cooldown timer
         PlayerRollCooldownTimer();
@@ -69,6 +66,8 @@ public class PlayerController : MonoBehaviour
         // Set player animation based on its movement situation
         SetPlayerAnimationSpeed();
     }
+  
+    
     /// <summary>
     /// Set the player starting weapon
     /// </summary>
@@ -419,7 +418,7 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// Enable the player movement
     /// </summary>
-    public void EnablePlayer()
+    public void EnableMovement()
     {
         isPlayerMovementDisabled = false;
     }
