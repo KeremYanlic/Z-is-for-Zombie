@@ -1,75 +1,96 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// <summary>
-// Spawns pickups that should exist on the first load in a level. This
-// automatically spawns the correct prefab for a given inventory item.
-// </summary>
-
-public class PickupSpawner : MonoBehaviour, ISaveable
+public class PickupSpawner : Inventory, ISaveable
 {
-    [SerializeField] private InventoryItemSO itemSO = null;
-    [SerializeField] private int number = 1;
+    public InventorySlot[] inventorySlots;
 
     private void Awake()
     {
-        //Spawn in Awake so can be destroyed by save system after.
-        SpawnPickup();
+        inventorySlots = new InventorySlot[inventorySize];
+    }
+  
+    public void LoadInventory(object capturedState)
+    {
+        RestoreState(capturedState);
+    }
+    public void DestroyPickup()
+    {
+        Destroy(gameObject);
     }
    
-    // <summary>
-    // Spawn pick up object
-    // </summary>
-    private void SpawnPickup()
+ 
+    public override bool AddItemToSlot(int slot, InventoryItemSO itemSO, int number)
     {
-        Pickup spawnedPickup = itemSO.SpawnPickup(transform.position, number);
-        spawnedPickup.transform.SetParent(transform);
+        inventorySlots[slot].itemSO = itemSO;
+        inventorySlots[slot].number = number;
+
+        return true;
+    }
+    public override void RemoveFromSlot(int slot, int number)
+    {
+        inventorySlots[slot].itemSO = null;
+        inventorySlots[slot].number = number;
     }
 
-    // <summary>
-    // Destroy pick up object.
-    // </summary>
-    private void DestroyPickup()
+    public override bool AddToFirstEmptySlot(InventoryItemSO itemSO, int number)
     {
-        if (GetPickup())
-        {
-            Destroy(GetPickup().gameObject);
-        }
+        throw new System.NotImplementedException();
     }
 
-    // <summary>
-    // Returns the pickup spawned by this class if it exists.
-    // </summary>
-    public Pickup GetPickup()
+    public override int FindEmptySlot()
     {
-        return GetComponentInChildren<Pickup>();
+        throw new System.NotImplementedException();
     }
 
-    // <summary>
-    // True if the pickup was collected.
-    // </summary>
-    public bool isCollected()
+    public override int FindStack(InventoryItemSO itemSO)
     {
-        return GetPickup() == null;
+        throw new System.NotImplementedException();
+    }
+
+    public override int GetInventorySize()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public override InventoryItemSO GetItemInSlot(int slot)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public override int GetNumberInSlot(int slot)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public override bool HasItem(InventoryItemSO itemSO)
+    {
+        throw new System.NotImplementedException();
     }
     public object CaptureState()
     {
-        return isCollected();
+        InventorySlotRecord[] slotStrings = new InventorySlotRecord[inventorySize];
+        for (int i = 0; i < inventorySize; i++)
+        {
+            if (inventorySlots[i].itemSO != null)
+            {
+                slotStrings[i].itemID = inventorySlots[i].itemSO.GetItemID();
+                slotStrings[i].number = inventorySlots[i].number;
+            }
+        }
+        return slotStrings;
     }
 
     public void RestoreState(object state)
     {
-        bool shouldBeCollected = (bool)state;
-        if(shouldBeCollected && !isCollected())
+        InventorySlotRecord[] slotStrings = (InventorySlotRecord[])state;
+
+        for (int i = 0; i < inventorySize; i++)
         {
-            DestroyPickup();
-        }
-        if(!shouldBeCollected && isCollected())
-        {
-            SpawnPickup();
+            inventorySlots[i].itemSO = InventoryItemSO.GetFromID(slotStrings[i].itemID);
+            inventorySlots[i].number = slotStrings[i].number;
         }
     }
-
-
 }
