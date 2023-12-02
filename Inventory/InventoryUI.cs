@@ -2,39 +2,42 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// <summary>
-// To be placed on the root of the inventory UI. Handles spawning all the
-// inventory slot prefabs.
-// </summary>
 public class InventoryUI : MonoBehaviour
 {
-    [SerializeField] private InventorySlotUI inventoryItemPrefab = null;
+    [SerializeField] private InventorySlotUI inventorySlotUIPrefab;
+
+    private void Start()
+    {
+        ReDraw();
+    }
 
     private void OnEnable()
     {
-        //Subscribe to inventory updated event
-        Inventory.Instance.OnInventoryUpdated += Inventory_OnInventoryUpdated;
-    }
-    private void OnDisable()
-    {
-        //Unsubscribe from inventory updated event
-        Inventory.Instance.OnInventoryUpdated -= Inventory_OnInventoryUpdated;
-    }
-    private void Start()
-    {
-        Inventory_OnInventoryUpdated(Inventory.Instance);   
+        //Subscribe to on inventory update event
+        PlayerInventory.Instance.OnInventoryUpdated += Instance_OnInventoryUpdated;
     }
 
-    private void Inventory_OnInventoryUpdated(Inventory obj)
+    private void OnDisable()
+    {
+        //Unsubscribe from on inventory update event
+        PlayerInventory.Instance.OnInventoryUpdated -= Instance_OnInventoryUpdated;
+    }
+    private void Instance_OnInventoryUpdated(PlayerInventory inventory)
+    {
+        ReDraw();
+    }
+    private void ReDraw()
     {
         foreach(Transform child in transform)
         {
             Destroy(child.gameObject);
         }
-        for(int i=0; i < Inventory.Instance.GetSize(); i++)
+        for(int i = 0; i <PlayerInventory.Instance.GetInventorySize(); i++)
         {
-            InventorySlotUI itemUI = Instantiate(inventoryItemPrefab, transform);
-            itemUI.SetUp(Inventory.Instance, i);
+            var itemUI = Instantiate(inventorySlotUIPrefab, transform);
+            itemUI.Setup(i);
         }
+        
     }
 }
+
