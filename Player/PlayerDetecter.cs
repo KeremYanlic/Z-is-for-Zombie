@@ -1,29 +1,25 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using System;
 [DisallowMultipleComponent]
-public class PlayerDetecter : MonoBehaviour
+public class PlayerDetecter : SingletonMonobehaviour<PlayerDetecter>
 {
-    private Player player;
-    //private RaycastHit2D hit;
-    private GameObject zombie;
-
-    [SerializeField] private LayerMask collidableLayers;
-
-    private Collider2D[] detectedCars = new Collider2D[0];
-    private Collider2D[] detectedZombies = new Collider2D[0];
-
     private const float X_DETECT_SIZE = 35f;
     private const float Y_DETECT_SIZE = 25f;
 
+    private Player player;
+   
+    private Collider2D[] detectedCars;
+    private Collider2D[] detectedZombies;
+    private Collider2D[] detectedPickupSpawners;
+    
+    public bool interactingPickupSpawner = false;
 
-    private void Awake()
+    [SerializeField] private LayerMask collidableLayers;
+    protected override void Awake()
     {
-        //Load components
         player = GetComponentInParent<Player>();
-
-        zombie = GameObject.FindGameObjectWithTag(Settings.zombieTag);
     }
 
     private void Update()
@@ -34,33 +30,49 @@ public class PlayerDetecter : MonoBehaviour
         //Check for near zombies
         detectedZombies = Physics2D.OverlapBoxAll(transform.position, new Vector2(X_DETECT_SIZE, Y_DETECT_SIZE), 360, Settings.zombieLayer);
 
-
+        //Check for near pickup spawners
+        detectedPickupSpawners = Physics2D.OverlapCircleAll(transform.position, Settings.pickupSpawnerDetectRadius, Settings.pickupSpawnerLayer);
+     
+        //Check environment for a car and press F to ride that.
+        SetActiveCar();
+    }
+    private void LateUpdate()
+    {
         if (IsThereZombie())
         {
             //There are some zombies!!
             ArrangeZombiesVisibilities();
-
         }
-
-
-        //Check environment for a car and press F to ride that.
-        SetActiveCar();
-
-
-    }
-
-
-    private void OnTriggerEnter2D(Collider2D collision)
-    {
-        if (collision.gameObject.CompareTag(Settings.zombieSpawnerTag))
+        if (Input.GetKeyDown(KeyCode.F) && IsTherePickup() && !interactingPickupSpawner && !ShowHideUI.Instance.isInventoryOpen)
         {
-            //Spawn Zombiessss !!!
-            collision.gameObject.GetComponent<ZombieSpawnEvent>().CallZombieSpawnEvent();
+            player.playerController.DisableMovement();
 
+            ShowHideUI.Instance.OpenInventory();
+            ShowHideUI.Instance.isInventoryOpen = true;
+            interactingPickupSpawner = true;
+
+            GameObject pickupGameobject = UtilsClass.GetClosestGameobject(detectedPickupSpawners);
+            PickupSpawner pickupSpawner = pickupGameobject.GetComponent<PickupSpawner>();
+
+            ShowHideUI.Instance.CallOpenPickupEvent(pickupSpawner);
         }
+
+
+        else if (Input.GetKeyDown(KeyCode.F) && interactingPickupSpawner && ShowHideUI.Instance.isInventoryOpen)
+        {
+            player.playerController.EnableMovement();
+
+            ShowHideUI.Instance.CloseInventory();
+            ShowHideUI.Instance.isInventoryOpen = false;
+            interactingPickupSpawner = false;
+
+            GameObject pickupGameobject = UtilsClass.GetClosestGameobject(detectedPickupSpawners);
+            PickupSpawner pickupSpawner = pickupGameobject.GetComponent<PickupSpawner>();
+
+            ShowHideUI.Instance.CallClosePickupEvent(pickupSpawner);
+        }
+
     }
-
-
     //<summary>
     //Set the active car
     //</summary>
@@ -70,7 +82,7 @@ public class PlayerDetecter : MonoBehaviour
         bool interactWithCar = Input.GetKeyDown(KeyCode.F);
 
         if (interactWithCar && player.activeCar.activeCar == null)
-        {
+        {   
             //If there is any car then drive it.
             if (IsThereCar())
             {
@@ -78,12 +90,12 @@ public class PlayerDetecter : MonoBehaviour
                 GameObject closestCar = UtilsClass.GetClosestGameobject(detectedCars);
                 //Set nearest car as current car.
                 player.setActiveCarEvent.CallSetActiveCar(closestCar);
-
+                
             }
-
+        
         }
         //If player already rides a car and if player press F then player leaves the car.
-        else if (interactWithCar && player.activeCar.activeCar != null)
+        else if(interactWithCar && player.activeCar.activeCar != null)
         {
             //Call deactive car event
             player.setActiveCarEvent.CallDeactiveCar();
@@ -99,7 +111,6 @@ public class PlayerDetecter : MonoBehaviour
         {
             RaycastHit2D hit = Physics2D.Raycast(transform.position, collider.gameObject.transform.position - transform.position, Mathf.Infinity, collidableLayers);
 
-
             if (hit.collider.gameObject != collider.gameObject && !hit.collider.gameObject.CompareTag(Settings.zombieTag))
             {
                 ZombieInvisibleProcess(collider.gameObject);
@@ -109,8 +120,6 @@ public class PlayerDetecter : MonoBehaviour
 
                 ZombieVisibleProcess(collider.gameObject);
             }
-
-
         }
     }
 
@@ -149,6 +158,8 @@ public class PlayerDetecter : MonoBehaviour
     {
         return detectedZombies.Length > 0;
     }
-
-
+    public bool IsTherePickup()
+    {
+        return detectedPickupSpawners.Length > 0;
+    } 
 }
