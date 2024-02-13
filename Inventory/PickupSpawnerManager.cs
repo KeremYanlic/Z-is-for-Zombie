@@ -8,30 +8,33 @@ using System;
 public class PickupSpawnerManager : MonoBehaviour
 {
     [SerializeField] private List<PickupSpawner> pickupSpawnerList;
-    private void OnEnable()
+    private void Start()
     {
         GroundInventory.Instance.OnCreatePickup += GroundInventory_OnGroundInventoryClosed;
     }
-    private void OnDisable()
+    private void OnDestroy()
     {
         GroundInventory.Instance.OnCreatePickup -= GroundInventory_OnGroundInventoryClosed;
 
     }
-    private void GroundInventory_OnGroundInventoryClosed(GroundInventory grbInventory, OnGroundInventoryClosedEventArgs groundInventoryClosedEventArgs)
+    private void GroundInventory_OnGroundInventoryClosed(GroundInventory groundInventory, GroundInventoryEventArgs groundInventoryEventArgs)
     {
-        SpawnPickupSpawner(groundInventoryClosedEventArgs);
+        SpawnPickupSpawner(groundInventoryEventArgs);
     }
 
-    private void SpawnPickupSpawner(OnGroundInventoryClosedEventArgs groundInventoryClosedEventArgs)
+    private void SpawnPickupSpawner(GroundInventoryEventArgs groundInventoryEventArgs)
     {
         Addressables.LoadAssetAsync<GameObject>(Settings.pickupSpawnerRef).Completed += (asyncOperationHandle) =>
         {
-            GameObject pickupSpawner = Instantiate(asyncOperationHandle.Result, groundInventoryClosedEventArgs.position, Quaternion.identity);
+            GameObject pickupSpawner = Instantiate(asyncOperationHandle.Result, GameManager.Instance.GetPlayer().GetPlayerPosition(), Quaternion.identity);
             try
             {
-                pickupSpawner.GetComponent<PickupSpawner>().LoadInventory(groundInventoryClosedEventArgs.grbInventoryState);
+                if(pickupSpawner != null)
+                {
+                    pickupSpawner.GetComponent<PickupSpawner>().LoadInventory(groundInventoryEventArgs.pickUpInventoryState);
+                }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Debug.Log(e);
             }
@@ -40,12 +43,12 @@ public class PickupSpawnerManager : MonoBehaviour
 
     public void DestroyAllPickups()
     {
-        foreach(PickupSpawner pickupSpawner in pickupSpawnerList)
+        foreach (PickupSpawner pickupSpawner in pickupSpawnerList)
         {
             pickupSpawner.DestroyPickup();
         }
         pickupSpawnerList.Clear();
     }
 
-    
+
 }
