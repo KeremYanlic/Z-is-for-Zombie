@@ -2,60 +2,73 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
-public class GroundInventory : Inventory, ISaveable
+public class GroundInventory : InventoryTetris
 {
-    public static GroundInventory Instance { get; private set; }
+    public static GroundInventory Instance;
 
-    public event Action<GroundInventory> OnGarbageInventoryUpdated;
-    public event Action<GroundInventory, OnGroundInventoryClosedEventArgs> OnCreatePickup;
-
-    private InventorySlot[] inventorySlots;
+    public event Action<GroundInventory> OnGroundInventoryUpdated;
+    public event Action<GroundInventory, GroundInventoryEventArgs> OnCreatePickup;
+    [SerializeField] private InventoryUI inventoryUI;
 
     private void Awake()
     {
         Instance = this;
 
-        inventorySlots = new InventorySlot[inventorySize];
-    }
+        int gridWidth = 8;
+        int gridHeight = 12;
+        float cellSize = 16f;
+        grid = new Grid<GridObject>(gridWidth, gridHeight, cellSize, new Vector3(0, 0, 0), (Grid<GridObject> g, int x, int y) => new GridObject(g, x, y));
 
+        transform.Find("BackgroundTempVisual").gameObject.SetActive(false);
+
+      
+    }
     private void Start()
     {
-        ShowHideUI.Instance.OnOpenInventory += OnOpenInventory;
-        ShowHideUI.Instance.OnCloseInventory += OnCloseInventory;
-        ShowHideUI.Instance.OnOpenPickup += OnOpenPickup;
-        ShowHideUI.Instance.OnClosePickup += OnClosePickup;
+        GearStockManager.Instance.OnOpenGearStock += GearStockManager_OnOpenGearStock;
+        GearStockManager.Instance.OnCloseGearStock += GearStockManager_OnCloseGearStock;
+        inventoryUI.OnOpenPickup += InventoryUI_OnOpenPickup;
+        inventoryUI.OnClosePickup += InventoryUI_OnClosePickup;
+
     }
     private void OnDestroy()
     {
-        ShowHideUI.Instance.OnOpenInventory -= OnOpenInventory;
-        ShowHideUI.Instance.OnCloseInventory -= OnCloseInventory;
-        ShowHideUI.Instance.OnOpenPickup -= OnOpenPickup;
-        ShowHideUI.Instance.OnClosePickup -= OnClosePickup;
+        GearStockManager.Instance.OnOpenGearStock -= GearStockManager_OnOpenGearStock;
+        GearStockManager.Instance.OnCloseGearStock -= GearStockManager_OnCloseGearStock;
+        inventoryUI.OnOpenPickup -= InventoryUI_OnOpenPickup;
+        inventoryUI.OnClosePickup -= InventoryUI_OnClosePickup;
     }
 
-    private void OnOpenInventory(ShowHideUI showHideUI)
+    private void GearStockManager_OnOpenGearStock()
     {
-        OnGarbageInventoryUpdated?.Invoke(this);
+        OnGroundInventoryUpdated?.Invoke(this);
+
+        itemContainer.gameObject.SetActive(true);
     }
-    private void OnCloseInventory(ShowHideUI showHideUI)
+    private void GearStockManager_OnCloseGearStock()
     {
+        itemContainer.gameObject.SetActive(false);
         if (IsThereItem() == false) return;
 
-        CreatePickupEvent(transform.position, CaptureState());
+        CreatePickupEvent(Save());
         ResetInventory();
-        CaptureState();
-        OnGarbageInventoryUpdated?.Invoke(this);
+        Save();
+        OnGroundInventoryUpdated?.Invoke(this);
     }
-    private void OnOpenPickup(ShowHideUI showHideUI, OnOpenPickupEventArgs onOpenPickupEventArgs)
+    private void InventoryUI_OnOpenPickup(InventoryUI inventoryUI, OnOpenPickupEventArgs onOpenPickupEventArgs)
     {
-        object pickupInventoryState = onOpenPickupEventArgs.pickupSpawner.CaptureState();
-        RestoreState(pickupInventoryState);
+        itemContainer.gameObject.SetActive(true);
+        string pickupInventoryState = onOpenPickupEventArgs.pickupSpawner.Save();
+        Load(pickupInventoryState);
 
-        OnGarbageInventoryUpdated?.Invoke(this);
+        OnGroundInventoryUpdated?.Invoke(this);
     }
 
-    private void OnClosePickup(ShowHideUI showHideUI, OnClosePickupEventArgs onClosePickupEventArgs)
+
+    private void InventoryUI_OnClosePickup(InventoryUI inventoryUI, OnClosePickupEventArgs onClosePickupEventArgs)
     {
+        itemContainer.gameObject.SetActive(false);
+
         PickupSpawner pickupSpawner = onClosePickupEventArgs.pickupSpawner;
 
         if (IsThereItem() == false)
@@ -63,157 +76,92 @@ public class GroundInventory : Inventory, ISaveable
             pickupSpawner.DestroyPickup();
             return;
         }
-        
-        object pickupLastState = CaptureState();
+        string pickupLastState = Save();
         pickupSpawner.LoadInventory(pickupLastState);
 
         ResetInventory();
-        OnGarbageInventoryUpdated?.Invoke(this);
+        OnGroundInventoryUpdated?.Invoke(this);
     }
 
-    private void CreatePickupEvent(Vector3 pickupPos, object pickupInventoryState)
+    private void CreatePickupEvent(string pickupInventoryState)
     {
-        OnCreatePickup?.Invoke(this, new OnGroundInventoryClosedEventArgs()
+        OnCreatePickup?.Invoke(this, new GroundInventoryEventArgs()
         {
-            position = pickupPos,
-            grbInventoryState = pickupInventoryState
+            pickUpInventoryState = pickupInventoryState
         });
     }
-    public override bool AddToFirstEmptySlot(InventoryItemSO itemSO, int number)
+    internal void ResetInventory()
     {
-        int i = FindEmptySlot();
-
-        if (i < 0) return false;
-
-        inventorySlots[i].itemSO = itemSO;
-        inventorySlots[i].number += number;
-
-        OnGarbageInventoryUpdated?.Invoke(this);
-        return true;
-    }
-    public override bool AddItemToSlot(int slot, InventoryItemSO itemSO, int number)
-    {
-        inventorySlots[slot].itemSO = itemSO;
-        inventorySlots[slot].number += number;
-        OnGarbageInventoryUpdated?.Invoke(this);
-        return true;
-    }
-
-  
-    public override void RemoveFromSlot(int slot, int number)
-    {
-        inventorySlots[slot].number -= number;
-        if (inventorySlots[slot].number <= 0)
+        for (int x = 0; x < grid.GetWidth(); x++)
         {
-            inventorySlots[slot].itemSO = null;
-            inventorySlots[slot].number = 0;
-        }
-        OnGarbageInventoryUpdated?.Invoke(this);
-    }
-    public override bool HasItem(InventoryItemSO itemSO)
-    {
-        for (int i = 0; i < inventorySlots.Length; i++)
-        {
-            if (object.ReferenceEquals(inventorySlots[i].itemSO, itemSO))
+            for (int y = 0; y < grid.GetHeight(); y++)
             {
-                return true;
+                if (grid.GetGridObject(x, y).HasPlacedObject())
+                {
+                    RemoveItemAt(new Vector2Int(x, y));
+                }
             }
         }
-        return false;
     }
-    public override int FindEmptySlot()
+
+    internal bool IsThereItem()
     {
-        for (int i = 0; i < inventorySlots.Length; i++)
+        return itemContainer.childCount > 0;
+    }
+
+    [Serializable]
+    public struct AddItemTetris
+    {
+        public string itemTetrisSOName;
+        public Vector2Int gridPosition;
+    }
+
+    [Serializable]
+    public struct ListAddItemTetris
+    {
+        public List<AddItemTetris> addItemTetrisList;
+    }
+
+    public string Save()
+    {
+        List<PlacedObject> placedObjectList = new List<PlacedObject>();
+        for (int x = 0; x < grid.GetWidth(); x++)
         {
-            if (inventorySlots[i].itemSO == null)
+            for (int y = 0; y < grid.GetHeight(); y++)
             {
-                return i;
+                if (grid.GetGridObject(x, y).HasPlacedObject())
+                {
+                    placedObjectList.Remove(grid.GetGridObject(x, y).GetPlacedObject());
+                    placedObjectList.Add(grid.GetGridObject(x, y).GetPlacedObject());
+                }
             }
         }
-        return -1;
-    }
-    public override int FindStack(InventoryItemSO itemSO)
-    {
-        if (!itemSO.IsStackable())
-        {
-            return -1;
-        }
 
-        for (int i = 0; i < inventorySlots.Length; i++)
+        List<AddItemTetris> addItemTetrisList = new List<AddItemTetris>();
+        foreach (PlacedObject placedObject in placedObjectList)
         {
-            if (object.ReferenceEquals(inventorySlots[i].itemSO, itemSO))
+            addItemTetrisList.Add(new AddItemTetris
             {
-                return i;
-            }
+                gridPosition = placedObject.GetGridPosition(),
+                itemTetrisSOName = (placedObject.GetPlacedObjectTypeSO() as ItemTetrisSO).name,
+            });
+
         }
-        return -1;
+
+        return JsonUtility.ToJson(new ListAddItemTetris { addItemTetrisList = addItemTetrisList });
     }
 
-    private bool IsThereItem()
+    public void Load(string loadString)
     {
-        for(int i = 0; i < inventorySlots.Length; i++)
+        ListAddItemTetris listAddItemTetris = JsonUtility.FromJson<ListAddItemTetris>(loadString);
+
+        foreach (AddItemTetris addItemTetris in listAddItemTetris.addItemTetrisList)
         {
-            if(inventorySlots[i].itemSO != null)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-    public override int GetInventorySize()
-    {
-        return inventorySize;
-    }
-
-    public override InventoryItemSO GetItemInSlot(int slot)
-    {
-        return inventorySlots[slot].itemSO;
-    }
-
-    public override int GetNumberInSlot(int slot)
-    {
-        return inventorySlots[slot].number;
-    }
-    public object CaptureState()
-    {
-        InventorySlotRecord[] slotStrings = new InventorySlotRecord[inventorySize];
-        for (int i = 0; i < inventorySize; i++)
-        {
-            if (inventorySlots[i].itemSO != null)
-            {
-                slotStrings[i].itemID = inventorySlots[i].itemSO.GetItemID();
-                slotStrings[i].number = inventorySlots[i].number;
-            }
-        }
-        return slotStrings;
-    }
-
-    public void RestoreState(object state)
-    {
-        InventorySlotRecord[] slotStrings = (InventorySlotRecord[])state;
-
-        for (int i = 0; i < inventorySize; i++)
-        {
-            inventorySlots[i].itemSO = InventoryItemSO.GetFromID(slotStrings[i].itemID);
-            inventorySlots[i].number = slotStrings[i].number;
-        }
-        OnGarbageInventoryUpdated?.Invoke(this);
-    }
-    private void ResetInventory()
-    {
-        for (int i = 0; i < inventorySize; i++)
-        {
-            if (inventorySlots[i].itemSO == null) continue;
-
-            inventorySlots[i].itemSO = null;
-            inventorySlots[i].number = 0;
-
+            TryPlaceItem(InventoryTetrisAssets.Instance.GetItemTetrisSOFromName(addItemTetris.itemTetrisSOName), addItemTetris.gridPosition);
         }
     }
 }
-
-public class OnGroundInventoryClosedEventArgs : EventArgs 
+public class GroundInventoryEventArgs : EventArgs
 {
-    public Vector3 position;
-    public object grbInventoryState;
+    public string pickUpInventoryState;
 }
