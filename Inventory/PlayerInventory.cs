@@ -3,126 +3,124 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
-public class PlayerInventory : Inventory,ISaveable
-{ 
-    public static PlayerInventory Instance { get; private set; }
+public class PlayerInventory : InventoryTetris
+{
+    public static PlayerInventory Instance;
+    public event Action<PlayerInventory> OnPlayerInventoryUpdated;
 
-    public event Action<PlayerInventory> OnInventoryUpdated;
-    private InventorySlot[] inventorySlots;
+    public ItemTetrisSO akItem;
+    public ItemTetrisSO grenadeItem;
+    public ItemTetrisSO moneyItem;
+    public ItemTetrisSO medkitItem;
+
+    [SerializeField] private InventoryUI inventoryUI;
+
     private void Awake()
     {
         Instance = this;
 
-        inventorySlots = new InventorySlot[inventorySize];
-    }
-    public override bool AddToFirstEmptySlot(InventoryItemSO itemSO, int number)
-    {
-        int i = FindSlot(itemSO);
+        int gridWidth = 8;
+        int gridHeight = 12;
+        float cellSize = 16f;
+        grid = new Grid<GridObject>(gridWidth, gridHeight, cellSize, new Vector3(0, 0, 0), (Grid<GridObject> g, int x, int y) => new GridObject(g, x, y));
 
-        if (i < 0) return false;
+        transform.Find("BackgroundTempVisual").gameObject.SetActive(false);
 
-        inventorySlots[i].itemSO = itemSO;
-        inventorySlots[i].number += number;
-
-        OnInventoryUpdated?.Invoke(this);
-        return true;
     }
 
-    public override bool AddItemToSlot(int slot, InventoryItemSO itemSO, int number)
+    private void Start()
     {
-        inventorySlots[slot].itemSO = itemSO;
-        inventorySlots[slot].number += number;
-        OnInventoryUpdated?.Invoke(this);
+        GearStockManager.Instance.OnOpenGearStock += GearStockManager_OnOpenGearStock;
+        GearStockManager.Instance.OnCloseGearStock += GearStockManager_OnCloseGearStock;
+        inventoryUI.OnOpenPickup += InventoryUI_OnOpenPickup;
+        inventoryUI.OnClosePickup += InventoryUI_OnClosePickup;
 
-        return true;
-    }
-    public override void RemoveFromSlot(int slot, int number)
-    {
-        inventorySlots[slot].number -= number;
-        if (inventorySlots[slot].number <= 0)
-        {
-            inventorySlots[slot].itemSO = null;
-            inventorySlots[slot].number = 0;
-        }
-        OnInventoryUpdated?.Invoke(this);
-    }
-    public override bool HasItem(InventoryItemSO itemSO)
-    {
-        for (int i = 0; i < inventorySlots.Length; i++)
-        {
-            if (object.ReferenceEquals(inventorySlots[i].itemSO, itemSO))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-    public override int FindEmptySlot()
-    {
-        for (int i = 0; i < inventorySlots.Length; i++)
-        {
-            if (inventorySlots[i].itemSO == null)
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
-    public override int FindStack(InventoryItemSO itemSO)
-    {
-        if (!itemSO.IsStackable())
-        {
-            return -1;
-        }
+        itemContainer.gameObject.SetActive(false);
 
-        for (int i = 0; i < inventorySlots.Length; i++)
-        {
-            if (object.ReferenceEquals(inventorySlots[i].itemSO, itemSO))
-            {
-                return i;
-            }
-        }
-        return -1;
+        TryPlaceItem(akItem, new Vector2Int(3, 1));
+        TryPlaceItem(grenadeItem, new Vector2Int(6, 3));
+        TryPlaceItem(moneyItem, new Vector2Int(6, 10));
+        TryPlaceItem(medkitItem, new Vector2Int(3, 10));
+
     }
 
-    public override InventoryItemSO GetItemInSlot(int slot)
-    {
-        return inventorySlots[slot].itemSO;
-    }
-
-    public override int GetNumberInSlot(int slot)
-    {
-        return inventorySlots[slot].number;
-    }
-    public override int GetInventorySize()
-    {
-        return inventorySize;
-    }
     
-    public object CaptureState()
+    private void OnDestroy()
     {
-        InventorySlotRecord[] slotStrings = new InventorySlotRecord[inventorySize];
-        for(int i = 0; i < inventorySize; i++)
+        GearStockManager.Instance.OnOpenGearStock -= GearStockManager_OnOpenGearStock;
+        GearStockManager.Instance.OnCloseGearStock -= GearStockManager_OnCloseGearStock;
+        inventoryUI.OnOpenPickup -= InventoryUI_OnOpenPickup;
+        inventoryUI.OnClosePickup -= InventoryUI_OnClosePickup;
+
+
+    }
+    private void GearStockManager_OnOpenGearStock()
+    {
+        itemContainer.gameObject.SetActive(true);
+    }
+
+    private void GearStockManager_OnCloseGearStock()
+    {
+        itemContainer.gameObject.SetActive(false);
+    }
+
+    private void InventoryUI_OnOpenPickup(InventoryUI arg1, OnOpenPickupEventArgs arg2)
+    {
+        itemContainer.gameObject.SetActive(true);
+    }
+    private void InventoryUI_OnClosePickup(InventoryUI arg1, OnClosePickupEventArgs arg2)
+    {
+        itemContainer.gameObject.SetActive(false);
+    }
+    [Serializable]
+    public struct AddItemTetris
+    {
+        public string itemTetrisSOName;
+        public Vector2Int gridPosition;
+    }
+
+    [Serializable]
+    public struct ListAddItemTetris
+    {
+        public List<AddItemTetris> addItemTetrisList;
+    }
+
+    public string Save()
+    {
+        List<PlacedObject> placedObjectList = new List<PlacedObject>();
+        for (int x = 0; x < grid.GetWidth(); x++)
         {
-            if(inventorySlots[i].itemSO != null)
+            for (int y = 0; y < grid.GetHeight(); y++)
             {
-                slotStrings[i].itemID = inventorySlots[i].itemSO.GetItemID();
-                slotStrings[i].number = inventorySlots[i].number;
+                if (grid.GetGridObject(x, y).HasPlacedObject())
+                {
+                    placedObjectList.Remove(grid.GetGridObject(x, y).GetPlacedObject());
+                    placedObjectList.Add(grid.GetGridObject(x, y).GetPlacedObject());
+                }
             }
         }
-        return slotStrings;
-    }
 
-    public void RestoreState(object state)
-    {
-        InventorySlotRecord[] slotStrings = (InventorySlotRecord[])state;
-
-        for(int i = 0; i< inventorySize; i++)
+        List<AddItemTetris> addItemTetrisList = new List<AddItemTetris>();
+        foreach (PlacedObject placedObject in placedObjectList)
         {
-            inventorySlots[i].itemSO = InventoryItemSO.GetFromID(slotStrings[i].itemID);
-            inventorySlots[i].number = slotStrings[i].number;
+            addItemTetrisList.Add(new AddItemTetris
+            {
+                gridPosition = placedObject.GetGridPosition(),
+                itemTetrisSOName = (placedObject.GetPlacedObjectTypeSO() as ItemTetrisSO).name,
+            });
+
         }
-        OnInventoryUpdated?.Invoke(this);
+
+        return JsonUtility.ToJson(new ListAddItemTetris { addItemTetrisList = addItemTetrisList });
     }
 
+    public void Load(string loadString)
+    {
+        ListAddItemTetris listAddItemTetris = JsonUtility.FromJson<ListAddItemTetris>(loadString);
+
+        foreach (AddItemTetris addItemTetris in listAddItemTetris.addItemTetrisList)
+        {
+            TryPlaceItem(InventoryTetrisAssets.Instance.GetItemTetrisSOFromName(addItemTetris.itemTetrisSOName), addItemTetris.gridPosition);
+        }
+    }
 }
