@@ -1,43 +1,97 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
-public class InventoryUI : MonoBehaviour
+[RequireComponent(typeof(GearStockManager))]
+[DisallowMultipleComponent]
+public class InventoryUI : SingletonMonobehaviour<InventoryUI>
 {
-    [SerializeField] private InventorySlotUI inventorySlotUIPrefab;
+    private GearStockManager gearStockManager;
 
-    private void Start()
+
+    public event Action OnOpenInventory;
+    public event Action OnCloseInventory;
+    public event Action<InventoryUI, OnOpenPickupEventArgs> OnOpenPickup;
+    public event Action<InventoryUI,OnClosePickupEventArgs> OnClosePickup;
+
+    [SerializeField] private GameObject playerInventoryBackground;
+    [SerializeField] private GameObject groundInventoryBackground;
+
+    protected override void Awake()
     {
-        ReDraw();
+        // load components
+        gearStockManager = GetComponent<GearStockManager>();
     }
 
     private void OnEnable()
     {
-        //Subscribe to on inventory update event
-        PlayerInventory.Instance.OnInventoryUpdated += Instance_OnInventoryUpdated;
+        // Subscribe to open gear stock event
+        gearStockManager.OnOpenGearStock += GearStockManager_OnOpenGearStock;
+
+        // Subscribe to close gear stock event
+        gearStockManager.OnCloseGearStock += GearStockManager_OnCloseGearStock;
     }
 
+ 
     private void OnDisable()
     {
-        //Unsubscribe from on inventory update event
-        PlayerInventory.Instance.OnInventoryUpdated -= Instance_OnInventoryUpdated;
+        // Unsubscribe from open gear stock event
+        gearStockManager.OnOpenGearStock -= GearStockManager_OnOpenGearStock;
+
+        // Unsubscribe from close gear stock event
+        gearStockManager.OnCloseGearStock -= GearStockManager_OnCloseGearStock;
     }
-    private void Instance_OnInventoryUpdated(PlayerInventory inventory)
+
+
+    // <summary>
+    // Open inventory event
+    // </summary>
+    private void GearStockManager_OnOpenGearStock()
     {
-        ReDraw();
+        //Open inventory
+        OpenInventory();
     }
-    private void ReDraw()
+    // <summary>
+    // Close inventory event
+    // </summary>
+    private void GearStockManager_OnCloseGearStock()
     {
-        foreach(Transform child in transform)
-        {
-            Destroy(child.gameObject);
-        }
-        for(int i = 0; i <PlayerInventory.Instance.GetInventorySize(); i++)
-        {
-            var itemUI = Instantiate(inventorySlotUIPrefab, transform);
-            itemUI.Setup(i);
-        }
-        
+        //Close inventory
+        CloseInventory();
+    }
+
+
+
+    public void CallOpenPickupEvent(PickupSpawner pickupSpawner)
+    {
+        OnOpenPickup?.Invoke(this, new OnOpenPickupEventArgs() { pickupSpawner = pickupSpawner });
+    }
+    public void CallClosePickupEvent(PickupSpawner pickupSpawner)
+    {
+        OnClosePickup?.Invoke(this, new OnClosePickupEventArgs() { pickupSpawner = pickupSpawner });
+    }
+
+
+
+    public void OpenInventory()
+    {
+        playerInventoryBackground.SetActive(true);
+        groundInventoryBackground.SetActive(true);
+    }
+    public void CloseInventory()
+    {
+        playerInventoryBackground.SetActive(false);
+        groundInventoryBackground.SetActive(false);
     }
 }
 
+public class OnOpenPickupEventArgs : EventArgs
+{
+    public PickupSpawner pickupSpawner;
+}
+
+public class OnClosePickupEventArgs : EventArgs
+{
+    public PickupSpawner pickupSpawner;
+}
