@@ -3,94 +3,77 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PickupSpawner : Inventory, ISaveable
+public class PickupSpawner : InventoryTetris
 {
-    public InventorySlot[] inventorySlots;
 
+    public bool isCreated;
     private void Awake()
     {
-        inventorySlots = new InventorySlot[inventorySize];
+        int gridWidth = 8;
+        int gridHeight = 12;
+        float cellSize = 16f;
+        grid = new Grid<GridObject>(gridWidth, gridHeight, cellSize, new Vector3(0, 0, 0), (Grid<GridObject> g, int x, int y) => new GridObject(g, x, y));
+
     }
-  
-    public void LoadInventory(object capturedState)
+
+    public void LoadInventory(string capturedState)
     {
-        RestoreState(capturedState);
+        Load(capturedState);
     }
     public void DestroyPickup()
     {
         Destroy(gameObject);
     }
-   
- 
-    public override bool AddItemToSlot(int slot, InventoryItemSO itemSO, int number)
+  
+    [Serializable]
+    public struct AddItemTetris
     {
-        inventorySlots[slot].itemSO = itemSO;
-        inventorySlots[slot].number = number;
-
-        return true;
-    }
-    public override void RemoveFromSlot(int slot, int number)
-    {
-        inventorySlots[slot].itemSO = null;
-        inventorySlots[slot].number = number;
+        public string itemTetrisSOName;
+        public Vector2Int gridPosition;
     }
 
-    public override bool AddToFirstEmptySlot(InventoryItemSO itemSO, int number)
+    [Serializable]
+    public struct ListAddItemTetris
     {
-        throw new System.NotImplementedException();
+        public List<AddItemTetris> addItemTetrisList;
     }
 
-    public override int FindEmptySlot()
+    public string Save()
     {
-        throw new System.NotImplementedException();
-    }
-
-    public override int FindStack(InventoryItemSO itemSO)
-    {
-        throw new System.NotImplementedException();
-    }
-
-    public override int GetInventorySize()
-    {
-        throw new System.NotImplementedException();
-    }
-
-    public override InventoryItemSO GetItemInSlot(int slot)
-    {
-        throw new System.NotImplementedException();
-    }
-
-    public override int GetNumberInSlot(int slot)
-    {
-        throw new System.NotImplementedException();
-    }
-
-    public override bool HasItem(InventoryItemSO itemSO)
-    {
-        throw new System.NotImplementedException();
-    }
-    public object CaptureState()
-    {
-        InventorySlotRecord[] slotStrings = new InventorySlotRecord[inventorySize];
-        for (int i = 0; i < inventorySize; i++)
+        List<PlacedObject> placedObjectList = new List<PlacedObject>();
+        for (int x = 0; x < grid.GetWidth(); x++)
         {
-            if (inventorySlots[i].itemSO != null)
+            for (int y = 0; y < grid.GetHeight(); y++)
             {
-                slotStrings[i].itemID = inventorySlots[i].itemSO.GetItemID();
-                slotStrings[i].number = inventorySlots[i].number;
+                if (grid.GetGridObject(x, y).HasPlacedObject())
+                {
+                    placedObjectList.Remove(grid.GetGridObject(x, y).GetPlacedObject());
+                    placedObjectList.Add(grid.GetGridObject(x, y).GetPlacedObject());
+                }
             }
         }
-        return slotStrings;
+
+        List<AddItemTetris> addItemTetrisList = new List<AddItemTetris>();
+        foreach (PlacedObject placedObject in placedObjectList)
+        {
+            addItemTetrisList.Add(new AddItemTetris
+            {
+                gridPosition = placedObject.GetGridPosition(),
+                itemTetrisSOName = (placedObject.GetPlacedObjectTypeSO() as ItemTetrisSO).name,
+            });
+
+        }
+
+        return JsonUtility.ToJson(new ListAddItemTetris { addItemTetrisList = addItemTetrisList });
     }
 
-    public void RestoreState(object state)
+    public void Load(string loadString)
     {
-        InventorySlotRecord[] slotStrings = (InventorySlotRecord[])state;
+        ListAddItemTetris listAddItemTetris = JsonUtility.FromJson<ListAddItemTetris>(loadString);
 
-        for (int i = 0; i < inventorySize; i++)
+        foreach (AddItemTetris addItemTetris in listAddItemTetris.addItemTetrisList)
         {
-            inventorySlots[i].itemSO = InventoryItemSO.GetFromID(slotStrings[i].itemID);
-            inventorySlots[i].number = slotStrings[i].number;
+            TryPlaceItem(InventoryTetrisAssets.Instance.GetItemTetrisSOFromName(addItemTetris.itemTetrisSOName), addItemTetris.gridPosition);
         }
     }
 }
