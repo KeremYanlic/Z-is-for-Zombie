@@ -1,8 +1,10 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+
 
 [RequireComponent(typeof(ZombieSpawnEvent))]
 [RequireComponent(typeof(BoxCollider2D))]
@@ -45,7 +47,13 @@ public class FieldSpawnerController : MonoBehaviour
 
 
     }
-
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.CompareTag(Settings.playerTag))
+        {
+            zombieSpawnEvent.CallZombieSpawnEvent();
+        }
+    }
 
     private void OnEnable()
     {
@@ -60,7 +68,7 @@ public class FieldSpawnerController : MonoBehaviour
     }
 
 
-    private void ZombieSpawnEvent_OnZombieSpawn(ZombieSpawnEvent obj)
+    private void ZombieSpawnEvent_OnZombieSpawn(ZombieSpawnEvent obj, ZombieSpawnEventArgs zombieSpawnEventArgs)
     {
         zombieSpawnCoroutine = StartCoroutine(SpawnZombies());
     }
@@ -95,14 +103,15 @@ public class FieldSpawnerController : MonoBehaviour
             //Set randomSpawnPosition according to randomIndex
             Vector3 randomSpawnPosition = spawnablePositions[randomIndex];
 
-            //Instantiate Zombie
-            GameObject adultZombie = Instantiate(zombieSpawnTemplateSO.pfAdultZombie, randomSpawnPosition, Quaternion.identity);
-            Zombie zombie = adultZombie.GetComponent<Zombie>();
-            zombie.InitialiseZombie(zombie.GetZombieDetailsSO(), randomSpawnPosition);
-            zombie.SetFieldSpawnController(this);
-            //Zombie pfAdultZombie = (Zombie)PoolManager.Instance.ReuseComponent(zombieSpawnTemplateSO.pfAdultZombie, randomSpawnPosition, Quaternion.identity);
-
-
+            Addressables.LoadAssetAsync<GameObject>(Settings.adultZombieRef).Completed += (asyncOperationHandle) =>
+            {
+                if (asyncOperationHandle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    //Instantiate Zombie
+                    GameObject adultZombie = Instantiate(zombieSpawnTemplateSO.pfAdultZombie, randomSpawnPosition, Quaternion.identity);
+                    InitialiseZombie(randomSpawnPosition, adultZombie);
+                }
+            };
             //Remove that randomSpawnPosition from spawnablePositions to obscure spawning the zombies on same position randomly.
             spawnablePositions.RemoveAt(randomIndex);
 
@@ -127,14 +136,15 @@ public class FieldSpawnerController : MonoBehaviour
             //Set randomSpawnPosition according to randomIndex
             Vector3 randomSpawnPosition = spawnablePositions[randomIndex];
 
-            //Instantiate Zombie
-
-            GameObject giantZombie = Instantiate(zombieSpawnTemplateSO.pfGiantZombie, randomSpawnPosition, Quaternion.identity);
-            Zombie zombie = giantZombie.GetComponent<Zombie>();
-            zombie.InitialiseZombie(zombie.GetZombieDetailsSO(), randomSpawnPosition);
-            zombie.SetFieldSpawnController(this);
-            //IZombie pfGiantZombie = (IZombie)PoolManager.Instance.ReuseComponent(zombieSpawnTemplateSO.pfGiantZombie, randomSpawnPosition, Quaternion.identity);
-
+            Addressables.LoadAssetAsync<GameObject>(Settings.giantZombieRef).Completed += (asyncOperationHandle) =>
+            {
+                if (asyncOperationHandle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    //Instantiate Zombie
+                    GameObject giantZombie = Instantiate(zombieSpawnTemplateSO.pfGiantZombie, randomSpawnPosition, Quaternion.identity);
+                    InitialiseZombie(randomSpawnPosition, giantZombie);
+                }
+            };
             //Remove that randomSpawnPosition from spawnablePositions to obscure spawning the zombies on same position randomly.
             spawnablePositions.RemoveAt(randomIndex);
 
@@ -159,13 +169,16 @@ public class FieldSpawnerController : MonoBehaviour
             //Set randomSpawnPosition according to randomIndex
             Vector3 randomSpawnPosition = spawnablePositions[randomIndex];
 
-            //Instantiate Zombie
-            GameObject childZombie = Instantiate(zombieSpawnTemplateSO.pfChildZombie, randomSpawnPosition, Quaternion.identity);
-            Zombie zombie = childZombie.GetComponent<Zombie>();
-            zombie.InitialiseZombie(zombie.GetZombieDetailsSO(), randomSpawnPosition);
-            zombie.SetFieldSpawnController(this);
-            //IZombie pfChildZombie = (IZombie)PoolManager.Instance.ReuseComponent(zombieSpawnTemplateSO.pfChildZombie, randomSpawnPosition, Quaternion.identity);
-
+            Addressables.LoadAssetAsync<GameObject>(Settings.kidZombieRef).Completed += (asyncOperationHandle) =>
+            {
+                if (asyncOperationHandle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    //Instantiate Zombie
+                    GameObject childZombie = Instantiate(zombieSpawnTemplateSO.pfChildZombie, randomSpawnPosition, Quaternion.identity);
+                    InitialiseZombie(randomSpawnPosition, childZombie);
+                }
+            };
+                
             //Remove that randomSpawnPosition from spawnablePositions to obscure spawning the zombies on same position randomly.
             spawnablePositions.RemoveAt(randomIndex);
 
@@ -193,13 +206,15 @@ public class FieldSpawnerController : MonoBehaviour
             Vector3 randomSpawnPosition = spawnablePositions[randomIndex];
 
             //Instantiate Zombie
+            Addressables.LoadAssetAsync<GameObject>(Settings.witchZombieRef).Completed += (asyncOperationHandle) =>
+            {
+                if(asyncOperationHandle.Status == AsyncOperationStatus.Succeeded)
+                {
 
-            GameObject witchPrefab = Instantiate(zombieSpawnTemplateSO.pfWitchZombie, randomSpawnPosition, Quaternion.identity);
-            Zombie zombie = witchPrefab.GetComponent<Zombie>();
-            zombie.InitialiseZombie(zombie.GetZombieDetailsSO(), randomSpawnPosition);
-            zombie.SetFieldSpawnController(this);
-            //IZombie pfWitchZombie = (IZombie)PoolManager.Instance.ReuseComponent(witchPrefab, randomSpawnPosition, Quaternion.identity);
-
+                    GameObject witchPrefab = Instantiate(zombieSpawnTemplateSO.pfWitchZombie, randomSpawnPosition, Quaternion.identity);
+                    InitialiseZombie(randomSpawnPosition, witchPrefab);
+                }
+            };
             //Remove that randomSpawnPosition from spawnablePositions to obscure spawning the zombies on same position randomly.
             spawnablePositions.RemoveAt(randomIndex);
 
@@ -207,6 +222,12 @@ public class FieldSpawnerController : MonoBehaviour
         }
     }
 
+    private void InitialiseZombie(Vector3 randomSpawnPosition, GameObject adultZombie)
+    {
+        Zombie zombie = adultZombie.GetComponent<Zombie>();
+        zombie.InitialiseZombie(zombie.GetZombieDetailsSO(), randomSpawnPosition);
+        zombie.SetFieldSpawnController(this);
+    }
 
     //<summary>
     //Set the top left collider vector and bottom right collider vector at start.
@@ -241,4 +262,3 @@ public class FieldSpawnerController : MonoBehaviour
 
 
 }
-
